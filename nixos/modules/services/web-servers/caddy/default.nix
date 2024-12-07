@@ -301,6 +301,14 @@ in
       '';
     };
 
+    environmentFile = mkOption {
+      default = true;
+      type = types.str;
+      description = ''
+        Path to EnvironmentFIle
+      '';
+    };
+
     settings = mkOption {
       type = settingsFormat.type;
       default = {};
@@ -378,6 +386,7 @@ in
         Restart = "on-failure";
         RestartPreventExitStatus = 1;
         RestartSec = "5s";
+        EnvironmentFile = cfg.EnvironmentFile;
 
         # TODO: attempt to upstream these options
         NoNewPrivileges = true;
