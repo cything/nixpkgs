@@ -1,47 +1,39 @@
 {
   lib,
   stdenv,
-  buildNpmPackage,
   fetchFromGitHub,
-  chromium,
-  python3,
+  deno,
+  fetchNpmDeps,
+  nodejs,
 }:
-buildNpmPackage {
+stdenv.mkDerivation rec {
   pname = "single-file-cli";
-  version = "1.1.49";
+  version = "2.0.73";
 
   src = fetchFromGitHub {
     owner = "gildas-lormeau";
     repo = "single-file-cli";
-    rev = "af0f6f119edd8bf82bce3860fa55cfad869ac874";
-    hash = "sha256-5pozqrIIanoLF4eugLxPRsUaoUYJurliovFFBYO/mC4=";
+    rev = "v${version}";
+    hash = "sha256-fMedP+wp1crHUj9/MVyG8XSsl1PA5bp7/HL4k+X0TRg=";
   };
-  npmDepsHash = "sha256-wiBpWw9nb/pWVGIc4Vl/IxxR5ic0LzLMMr3WxRNvYdM=";
 
-  nativeCheckInputs = [ chromium ];
-  doCheck = stdenv.hostPlatform.isLinux;
+  npmDeps = fetchNpmDeps {
+    inherit src;
+    name = pname;
+    hash = "sha256-nnOMBb9mHNhDejE3+Kl26jsrTRxSSg500q1iwwVUqP8=";
+  };
 
-  postBuild = ''
-    patchShebangs ./single-file
-  '';
+  nativeBuildInputs = [
+    nodejs
+    deno
+  ];
 
-  checkPhase = ''
-    runHook preCheck
-
-    ${python3}/bin/python -m http.server --bind 127.0.0.1 &
-    pid=$!
-
-    ./single-file \
-      --browser-headless \
-      --browser-executable-path chromium-browser\
-      http://127.0.0.1:8000
-
-    grep -F 'Page saved with SingleFile' 'Directory listing for'*.html
-
-    kill $pid
-    wait
-
-    runHook postCheck
+  buildPhase = ''
+    export DENO_DIR="$(mktemp -d)"
+    export DENO_NO_UPDATE_CHECK=true
+    mkdir -p $DENO_DIR/npm
+    ln -s $src/node_modules $DENO_DIR/npm/registry.npmjs.org
+    deno compile --unstable-byonm --cached-only --vendor=true --node-modules-dir=true --allow-read --allow-write --allow-net --allow-env --allow-run --ext=js --output=$out/bin/single-file --target=x86_64-unknown-linux-gnu $src/single-file
   '';
 
   meta = {
