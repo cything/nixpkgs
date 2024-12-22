@@ -42,7 +42,7 @@ in
     package = mkPackageOption pkgs "wallabag" { };
 
     user = mkOption {
-      types = types.str;
+      type = types.str;
       default = "wallabag";
       description = "User under which Wallabag runs";
     };
