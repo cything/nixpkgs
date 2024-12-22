@@ -47,6 +47,12 @@ in
       description = "User under which Wallabag runs";
     };
 
+    group = mkOption {
+      type = types.str;
+      default = "wallabag";
+      description = "Group under which Wallabag runs";
+    };
+
     dataDir = mkOption {
       type = types.str;
       default = "/var/lib/wallabag";
@@ -156,6 +162,10 @@ in
       description = "Wallabag service user";
       isSystemUser = true;
       home = cfg.dataDir;
+      group = cfg.group;
+    };
+    users.groups."${cfg.group}" = {
+      description = "Wallabag service group";
     };
 
     services.postgresql = lib.mkIf cfg.database.createLocally {
