@@ -70,6 +70,7 @@ rustPlatform.buildRustPackage rec {
     --add-needed ${libdrm}/lib/libdrm.so \
     --add-needed ${libdrm}/lib/libdrm_intel.so \
     --add-needed ${libdrm}/lib/libdrm_amdgpu.so \
+    --add-needed ${libdrm}/lib/libdrm_nouveau.so \
     --add-rpath ${
       lib.makeLibraryPath [ vulkan-loader libdrm ]
     }
