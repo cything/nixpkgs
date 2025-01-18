@@ -74,6 +74,8 @@ rustPlatform.buildRustPackage rec {
     }
   '';
 
+  patches = [ ./remove-nvidia-tests.patch ];
+
   passthru.updateScript = nix-update-script { };
 
   meta = {
