@@ -9,17 +9,19 @@
   SDL2,
   libXext,
   Cocoa,
+  utf8proc,
+  nix-update-script,
 }:
 
 stdenv.mkDerivation rec {
   pname = "schismtracker";
-  version = "20240809";
+  version = "20241226";
 
   src = fetchFromGitHub {
     owner = pname;
     repo = pname;
     rev = version;
-    sha256 = "sha256-J4al7XU+vvehDnp2fRrVesWyUN4i63g5btUkjarpXbk=";
+    hash = "sha256-CZc5rIAgEydb8JhtkRSqEB9PI7TC58oJZg939GIEiMs=";
   };
 
   # If we let it try to get the version from git, it will fail and fall back
@@ -38,6 +40,7 @@ stdenv.mkDerivation rec {
     autoreconfHook
     perl
     pkg-config
+    utf8proc
   ];
 
   buildInputs =
@@ -55,6 +58,8 @@ stdenv.mkDerivation rec {
     substituteInPlace configure.ac \
       --replace '-lSDL2main' '-lSDL2'
   '';
+
+  passthru.updateScript = nix-update-script { };
 
   meta = with lib; {
     description = "Music tracker application, free reimplementation of Impulse Tracker";
