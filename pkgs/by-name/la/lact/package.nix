@@ -68,12 +68,14 @@ rustPlatform.buildRustPackage rec {
     patchelf $out/bin/.lact-wrapped \
     --add-needed ${vulkan-loader}/lib/libvulkan.so \
     --add-needed ${libdrm}/lib/libdrm.so \
-    --add-needed ${libdrm}/lib/libdrm_intel.so.1 \
+    --add-needed ${libdrm}/lib/libdrm_intel.so \
+    --add-needed ${libdrm}/lib/libdrm_amdgpu.so \
     --add-rpath ${
       lib.makeLibraryPath [ vulkan-loader libdrm ]
     }
   '';
 
+  # nvidia tests fail with "NVML missing"
   patches = [ ./remove-nvidia-tests.patch ];
 
   passthru.updateScript = nix-update-script { };
