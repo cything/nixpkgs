@@ -45,7 +45,6 @@ rustPlatform.buildRustPackage rec {
   checkFlags = [
     # tries and fails to initialize gtk
     "--skip=app::pages::thermals_page::fan_curve_frame::tests::set_get_curve"
-    "--skip=tests::snapshot_everything"
   ];
 
   postPatch = ''
@@ -66,8 +65,12 @@ rustPlatform.buildRustPackage rec {
   '';
 
   postFixup = lib.optionalString stdenv.targetPlatform.isElf ''
-    patchelf $out/bin/.lact-wrapped --add-needed libvulkan.so --add-rpath ${
-      lib.makeLibraryPath [ vulkan-loader ]
+    patchelf $out/bin/.lact-wrapped \
+    --add-needed ${vulkan-loader}/lib/libvulkan.so \
+    --add-needed ${libdrm}/lib/libdrm.so \
+    --add-needed ${libdrm}/lib/libdrm_intel.so.1 \
+    --add-rpath ${
+      lib.makeLibraryPath [ vulkan-loader libdrm ]
     }
   '';
 
