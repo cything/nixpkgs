@@ -78,7 +78,7 @@ rustPlatform.buildRustPackage rec {
   '';
 
   # nvidia tests fail with "NVML missing"
-  # patches = [ ./remove-nvidia-tests.patch ];
+  patches = [ ./remove-nvidia-tests.patch ];
 
   passthru.updateScript = nix-update-script { };
 
