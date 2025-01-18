@@ -23,6 +23,7 @@ stdenv.mkDerivation rec {
     rev = version;
     hash = "sha256-CZc5rIAgEydb8JhtkRSqEB9PI7TC58oJZg939GIEiMs=";
   };
+  strictDeps = true;
 
   # If we let it try to get the version from git, it will fail and fall back
   # on running `date`, which will output the epoch, which is considered invalid
@@ -33,18 +34,29 @@ stdenv.mkDerivation rec {
   '';
 
   configureFlags = [
-    "--enable-dependency-tracking"
-  ] ++ lib.optional stdenv.hostPlatform.isDarwin "--disable-sdltest";
+    (lib.enableFeature true "dependency-tracking")
+    (lib.withFeature true "sdl2")
+    (lib.enableFeature true "sdl2-linking")
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isLinux [
+      (lib.enableFeature true "alsa")
+      (lib.enableFeature true "alsa-linking")
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      (lib.enableFeature false "sdltest")
+  ];
 
   nativeBuildInputs = [
     autoreconfHook
     perl
     pkg-config
-    utf8proc
   ];
 
   buildInputs =
-    [ SDL2 ]
+    [
+      SDL2
+      utf8proc
+    ]
     ++ lib.optionals stdenv.hostPlatform.isLinux [
       alsa-lib
       libXext
