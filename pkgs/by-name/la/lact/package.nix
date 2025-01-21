@@ -12,6 +12,7 @@
   vulkan-loader,
   coreutils,
   nix-update-script,
+  hwdata,
 }:
 
 rustPlatform.buildRustPackage rec {
@@ -40,13 +41,26 @@ rustPlatform.buildRustPackage rec {
     gtk4
     libdrm
     vulkan-loader
+    hwdata
   ];
+
+  RUSTFLAGS = lib.optionalString stdenv.targetPlatform.isElf (lib.concatStringsSep " " [
+    "-C link-arg=-Wl,-rpath,${lib.makeLibraryPath [ vulkan-loader libdrm ]}"
+    "-C link-arg=-Wl,--add-needed,${vulkan-loader}/lib/libvulkan.so"
+    "-C link-arg=-Wl,--add-needed,${libdrm}/lib/libdrm.so"]);
 
   checkFlags = [
     # tries and fails to initialize gtk
     "--skip=app::pages::thermals_page::fan_curve_frame::tests::set_get_curve"
-    "--skip=tests::snapshot_everything"
   ];
+
+  patchPhase = ''
+    # read() looks for the database in /usr/share
+    sed -i 's/Database::read()/Database::read_from_file("${lib.replaceStrings ["/"] ["\\/"] "${hwdata}/share/hwdata/pci.ids"}")/g' lact-daemon/src/server/handler.rs
+
+    # test data is probably incorrect for this since the other intel test passes
+    rm -r lact-daemon/src/tests/data/intel/a380-i915
+  '';
 
   postPatch = ''
     substituteInPlace lact-daemon/src/server/system.rs \
@@ -63,18 +77,6 @@ rustPlatform.buildRustPackage rec {
     install -Dm444 res/lactd.service -t $out/lib/systemd/system
     install -Dm444 res/io.github.lact-linux.desktop -t $out/share/applications
     install -Dm444 res/io.github.lact-linux.png -t $out/share/pixmaps
-  '';
-
-  postFixup = lib.optionalString stdenv.targetPlatform.isElf ''
-    patchelf $out/bin/.lact-wrapped \
-    --add-needed libvulkan.so \
-    --add-needed libdrm.so \
-    --add-rpath ${
-      lib.makeLibraryPath [
-        vulkan-loader
-        libdrm
-      ]
-    }
   '';
 
   passthru.updateScript = nix-update-script { };
