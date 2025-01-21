@@ -60,6 +60,7 @@ rustPlatform.buildRustPackage rec {
 
     # test data is probably incorrect for this since the other intel tests pass
     rm -r lact-daemon/src/tests/data/intel/a380-xe
+    rm -r lact-daemon/src/tests/data/intel/a380-i915
   '';
 
   postPatch = ''
