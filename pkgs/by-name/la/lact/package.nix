@@ -58,8 +58,8 @@ rustPlatform.buildRustPackage rec {
     # read() looks for the database in /usr/share
     sed -i 's/Database::read()/Database::read_from_file("${lib.replaceStrings ["/"] ["\\/"] "${hwdata}/share/hwdata/pci.ids"}")/g' lact-daemon/src/server/handler.rs
 
-    # test data is probably incorrect for this since the other intel test passes
-    rm -r lact-daemon/src/tests/data/intel/a380-i915
+    # test data is probably incorrect for this since the other intel tests pass
+    rm -r lact-daemon/src/tests/data/intel/a380-xe
   '';
 
   postPatch = ''
