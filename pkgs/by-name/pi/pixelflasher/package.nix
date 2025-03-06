@@ -10,7 +10,7 @@
 python3Packages.buildPythonApplication rec {
   pname = "pixelflasher";
   version = "7.10.0.0";
-  format = "other";
+  pyproject = false;
 
   src = fetchFromGitHub {
     owner = "badabing2005";
@@ -85,7 +85,7 @@ python3Packages.buildPythonApplication rec {
   '';
 
   meta = {
-    description = "Pixel™ phone flashing GUI utility with features.";
+    description = "Pixel™ phone flashing GUI utility with features";
     homepage = "https://github.com/badabing2005/PixelFlasher";
     changelog = "https://github.com/badabing2005/PixelFlasher/releases";
     license = lib.licenses.gpl3;
