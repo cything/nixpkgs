@@ -18,17 +18,17 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "lact";
-  version = "0.7.2";
+  version = "0.7.3";
 
   src = fetchFromGitHub {
     owner = "ilya-zlobintsev";
     repo = "LACT";
     tag = "v${version}";
-    hash = "sha256-6nNt/EnJKHdldjpCW2pLPBkU5TLGEaqtnUUBraeRa3I=";
+    hash = "sha256-R8VEAk+CzJCxPzJohsbL/XXH1GMzGI2W92sVJ2evqXs=";
   };
 
   useFetchCargoVendor = true;
-  cargoHash = "sha256-NoWngD0LJ+cteoQIJ0iye0MZgmLuuxN2YHHyMqeEABc=";
+  cargoHash = "sha256-SH7jmXDvGYO9S5ogYEYB8dYCF3iz9GWDYGcZUaKpWDQ=";
 
   nativeBuildInputs = [
     pkg-config
@@ -72,7 +72,7 @@ rustPlatform.buildRustPackage rec {
     substituteInPlace res/lactd.service \
       --replace-fail ExecStart={lact,$out/bin/lact}
 
-    substituteInPlace res/io.github.lact-linux.desktop \
+    substituteInPlace res/io.github.ilya_zlobintsev.LACT.desktop \
       --replace-fail Exec={lact,$out/bin/lact}
 
     # read() looks for the database in /usr/share so we use read_from_file() instead
@@ -84,8 +84,8 @@ rustPlatform.buildRustPackage rec {
 
   postInstall = ''
     install -Dm444 res/lactd.service -t $out/lib/systemd/system
-    install -Dm444 res/io.github.lact-linux.desktop -t $out/share/applications
-    install -Dm444 res/io.github.lact-linux.png -t $out/share/pixmaps
+    install -Dm444 res/io.github.ilya_zlobintsev.LACT.desktop -t $out/share/applications
+    install -Dm444 res/io.github.ilya_zlobintsev.LACT.svg -t $out/share/pixmaps
   '';
 
   preFixup = ''
