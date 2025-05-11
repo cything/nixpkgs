@@ -1,0 +1,163 @@
+--- ax99100_sp.c
++++ ax99100_sp.c
+@@ -27,6 +27,7 @@
+ #include <linux/pci.h>
+ #include <linux/console.h>
+ #include <linux/sysrq.h>
++#include <linux/kfifo.h>
+ 
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0)
+ #include <linux/mca.h>
+@@ -553,8 +554,10 @@ static void serial99100_start_tx(struct uart_port *port)
+ 	struct uart_99100_port *up = &serial99100_ports[port->line];
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
+ 	struct circ_buf *xmit = &up->port.info->xmit;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	struct circ_buf *xmit = &up->port.state->xmit;
++#else
++	struct tty_port *tport = &up->port.state->port;
+ #endif
+ 	u32	length=0,len2end,txdma_status=0;
+ 	int tail,head,tobe_transferred;
+@@ -579,13 +582,18 @@ static void serial99100_start_tx(struct uart_port *port)
+ 
+ 		//CALCULATING THE AMOUNT OF DATA AVAILABLE FOR THE NEXT TRANSFER
+ 		//AND COPYING THE DATA TO THE DMA BUFFER
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 		length = uart_circ_chars_pending(xmit);
++#else
++		length = kfifo_len(&tport->xmit_fifo);
++#endif
+ 
+ 		if (length == 0) {
+ 			TX_DEBUG("In %s TX length = 0\n",__FUNCTION__);
+ 			return;
+ 		}
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 		head=xmit->head;
+ 		tail=xmit->tail;
+ 		len2end = CIRC_CNT_TO_END(head, tail, UART_XMIT_SIZE); //size 4096
+@@ -626,7 +634,9 @@ static void serial99100_start_tx(struct uart_port *port)
+ 		DMATX_DEBUG("In %s -------------xmit->tail=%d--------------------------START\n",__FUNCTION__,xmit->tail);
+ 		xmit->tail = ((xmit->tail) + up->dma_tx_cnt) & (UART_XMIT_SIZE-1);
+ 		DMATX_DEBUG("In %s -------------xmit->tail2=%d--------------------------START\n",__FUNCTION__,xmit->tail);
+-
++#else
++		up->dma_tx_cnt = kfifo_out_peek(&tport->xmit_fifo, up->dma_tx_buf_v_start, DMA_TX_BUFFER_SZ);
++#endif
+ 		up->serialise_txdma++;
+ 
+ spin_lock_irqsave(&up->lock_99100, flags);			
+@@ -849,8 +859,10 @@ static _INLINE_ void transmit_chars(struct uart_99100_port *up)
+ {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
+ 	struct circ_buf *xmit = &up->port.info->xmit;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	struct circ_buf *xmit = &up->port.state->xmit;
++#else
++	struct tty_port *tport = &up->port.state->port;
+ #endif
+ 	int count;
+ 
+@@ -862,7 +874,11 @@ static _INLINE_ void transmit_chars(struct uart_99100_port *up)
+ 		return;
+ 	}
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)) {
++#else
++	if (kfifo_is_empty(&tport->xmit_fifo) || uart_tx_stopped(&up->port)) {
++#endif
+ 		#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,13)
+ 		serial99100_stop_tx(&up->port, 0);
+ 		#else
+@@ -871,20 +887,35 @@ static _INLINE_ void transmit_chars(struct uart_99100_port *up)
+ 		return;
+ 	}
+ 
++	unsigned char c;
+ 	count = uart_config[up->port.type].tx_loadsz;
+ 	DEBUG("In %s-----------up->port.type=%d,tx_loadsz=%d\n",__FUNCTION__,up->port.type,count);
+ 	do {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 		serial_out(up, UART_TX, xmit->buf[xmit->tail]);
+ 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
+ 		up->port.icount.tx++;
+ 		if (uart_circ_empty(xmit))
+ 			break;
++#else
++		if (!uart_fifo_get(&up->port, &c))
++			break;
++		serial_out(up, UART_TX, c);
++#endif
+ 	} while (--count > 0);
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
++#else
++	if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
++#endif
+ 		uart_write_wakeup(&up->port);
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	if (uart_circ_empty(xmit)){
++#else
++	if (kfifo_is_empty(&tport->xmit_fifo)){
++#endif
+ 		#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,13)
+ 		serial99100_stop_tx(&up->port, 0);
+ 		#else
+@@ -922,8 +953,10 @@ static int transmit_chars_dma_done(struct uart_99100_port * up)
+ {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,32)
+ 	struct circ_buf *xmit = &up->port.info->xmit;
+-#else
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	struct circ_buf *xmit = &up->port.state->xmit;
++#else
++	struct tty_port *tport = &up->port.state->port;
+ #endif
+ 	int length,len2end;
+ 	
+@@ -932,12 +965,20 @@ static int transmit_chars_dma_done(struct uart_99100_port * up)
+ 	DMATX_DEBUG("In %s ---------------------------------------START\n",__FUNCTION__);
+ 
+ 	up->port.icount.tx += up->dma_tx_cnt;			
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	length = uart_circ_chars_pending(xmit); 
++#else
++	length = kfifo_len(&tport->xmit_fifo);
++#endif
+ 	DMATX_DEBUG("In %s circ_buf lenght=%d after\n",__FUNCTION__,length); 
+ 	
+ 	DMATX_DEBUG("In %s up->dma_tx_buf_v=0x%x ---------------------------------------\n",__FUNCTION__,(unsigned int)up->dma_tx_buf_v);
+ 		
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)){
++#else
++	if (kfifo_is_empty(&tport->xmit_fifo) || uart_tx_stopped(&up->port)){
++#endif
+ 		up->serialise_txdma=0;			
+ 		if (length < WAKEUP_CHARS)
+ 			uart_write_wakeup(&up->port);
+@@ -947,6 +988,7 @@ static int transmit_chars_dma_done(struct uart_99100_port * up)
+ 	//CALCULATING THE AMOUNT OF DATA AVAILABLE FOR THE NEXT TRANSFER 
+ 	//AND COPYING THE DATA TO THE DMA BUFFER
+ 	
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+ 	length = uart_circ_chars_pending(xmit);
+ 	len2end = CIRC_CNT_TO_END(xmit->head, xmit->tail, UART_XMIT_SIZE); 
+ 	DMATX_DEBUG("In %s -------xmit->tail=%d, xmit->head=%d,length=%d,length2end=%d\n",__FUNCTION__,xmit->tail,xmit->head,length,len2end);
+@@ -987,6 +1029,9 @@ static int transmit_chars_dma_done(struct uart_99100_port * up)
+ 	DMATX_DEBUG("In %s -------------xmit->tail=%d--------------------------START\n",__FUNCTION__,xmit->tail);
+ 	xmit->tail = ((xmit->tail) + up->dma_tx_cnt) & (UART_XMIT_SIZE-1);
+ 	DMATX_DEBUG("In %s -------------xmit->tail2=%d--------------------------START\n",__FUNCTION__,xmit->tail);
++#else
++	up->dma_tx_cnt = kfifo_out_peek(&tport->xmit_fifo, up->dma_tx_buf_v_start, DMA_TX_BUFFER_SZ);
++#endif
+ 	
+ 
+ 	DMATX_DEBUG("In %s length=%d\n",__FUNCTION__,length);

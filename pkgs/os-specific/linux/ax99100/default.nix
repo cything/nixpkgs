@@ -41,6 +41,9 @@ stdenv.mkDerivation {
     ++ lib.optionals (lib.versionAtLeast kernel.version "6.2") [
       ./kernel-6.2-fix-pointer-type.patch
       ./kernel-6.4-fix-define-semaphore.patch
+    ]
+    ++ lib.optionals (lib.versionAtLeast kernel.version "6.10") [
+      ./kernel-6.10-circ_buf-to-kfifo.patch
     ];
 
   patchFlags = [ "-p0" ];
